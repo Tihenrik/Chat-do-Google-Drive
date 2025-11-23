@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Web Chat</title>
+    <!-- Ícones (Lucide via CDN para não pesar) -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* --- ESTILOS GERAIS --- */
+        :root {
+            --primary-color: #059669; /* Verde Emerald Padrão */
+            --bg-color: #e5ddd5;
+            --white: #ffffff;
+            --gray-light: #f0f2f5;
+            --text-dark: #1f2937;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f3f4f6;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            overflow: hidden; /* Evita scroll na página toda */
+        }
+
+        /* Container Principal (Simula um App) */
+        #app-container {
+            width: 100%;
+            max-width: 480px;
+            height: 100%;
+            background-color: var(--bg-color);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        /* Desktop Adjustments */
+        @media (min-width: 500px) {
+            body { align-items: center; padding: 20px; }
+            #app-container { height: 85vh; border-radius: 20px; border: 1px solid #ddd; }
+        }
+
+        /* --- TELA DE LOGIN --- */
+        #login-screen {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: var(--white);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 30px;
+            transition: opacity 0.3s;
+        }
+
+        .login-card { text-align: center; }
+        .login-icon { width: 70px; height: 70px; border-radius: 50%; background: var(--primary-color); color: white; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow); transition: background 0.3s; }
+        .input-group { margin-bottom: 20px; text-align: left; }
+        .input-label { font-size: 12px; font-weight: bold; color: #6b7280; text-transform: uppercase; display: block; margin-bottom: 5px; margin-left: 2px; }
+        
+        input[type="text"] {
+            width: 100%;
+            padding: 14px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        input[type="text"]:focus { border-color: var(--primary-color); }
+
+        .color-picker { display: flex; gap: 10px; justify-content: center; margin-bottom: 30px; }
+        .color-dot { width: 35px; height: 35px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: transform 0.2s; opacity: 0.6; }
+        .color-dot.active { transform: scale(1.2); border-color: #d1d5db; opacity: 1; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+
+        .btn-primary {
+            width: 100%;
+            padding: 15px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: var(--shadow);
+            transition: opacity 0.2s, background 0.3s;
+        }
+        .btn-primary:active { transform: scale(0.98); }
+
+        /* --- TELA DO CHAT --- */
+        #chat-screen { display: none; flex-direction: column; height: 100%; }
+
+        /* Header */
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 12px 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            z-index: 10;
+            transition: background 0.3s;
+        }
+        .header-info { display: flex; align-items: center; gap: 10px; }
+        .avatar { width: 36px; height: 36px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; }
+        .user-status { font-size: 11px; opacity: 0.9; }
+        .header-actions button { background: none; border: none; color: white; cursor: pointer; padding: 5px; border-radius: 50%; }
+        .header-actions button:hover { background: rgba(255,255,255,0.1); }
+
+        /* Área de Mensagens */
+        #messages-area {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        .msg {
+            max-width: 80%;
+            padding: 8px 12px;
+            border-radius: 10px;
+            font-size: 14px;
+            line-height: 1.4;
+            position: relative;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            word-wrap: break-word;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .msg.mine { align-self: flex-end; background-color: #dcf8c6; border-top-right-radius: 0; }
+        .msg.theirs { align-self: flex-start; background-color: white; border-top-left-radius: 0; }
+        
+        .msg-author { font-size: 10px; font-weight: bold; margin-bottom: 2px; color: #d97706; }
+        .msg-meta { display: flex; justify-content: flex-end; align-items: center; gap: 3px; margin-top: 2px; font-size: 10px; color: #9ca3af; }
+        .msg.pending { opacity: 0.7; }
+
+        /* Input Bar */
+        #input-area {
+            background: white;
+            padding: 8px 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-top: 1px solid #e5e7eb;
+        }
+        #message-input {
+            flex: 1;
+            padding: 12px 15px;
+            border-radius: 20px;
+            background: #f3f4f6;
+            border: none;
+            outline: none;
+            font-size: 15px;
+        }
+        #send-btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.3s, transform 0.1s;
+        }
+        #send-btn:disabled { background: #ccc; cursor: default; }
+        #send-btn:active { transform: scale(0.9); }
+
+        /* Utilitários */
+        .hidden { display: none !important; }
+        .error-banner { background: #fee2e2; color: #b91c1c; padding: 10px; text-align: center; font-size: 12px; margin-bottom: 15px; border-radius: 8px; display: none; }
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+    
+    <!-- TELA DE LOGIN -->
+    <div id="login-screen">
+        <div class="login-card">
+            <div id="login-icon" class="login-icon">
+                <i data-lucide="message-square" width="32" height="32"></i>
+            </div>
+            <h2 style="margin: 0 0 5px 0; color: #374151;">Bem-vindo</h2>
+            <p style="margin: 0 0 25px 0; color: #9ca3af; font-size: 14px;">Configure seu perfil para entrar</p>
+
+            <div id="login-error" class="error-banner"></div>
+
+            <div class="input-group">
+                <label class="input-label">Seu Nome</label>
+                <input type="text" id="username-input" placeholder="Ex: Ana Silva" maxlength="20">
+            </div>
+
+            <div class="input-group">
+                <label class="input-label">Cor do Tema</label>
+                <div class="color-picker">
+                    <div class="color-dot active" style="background: #059669;" onclick="selectColor('#059669', this)"></div> <!-- Verde -->
+                    <div class="color-dot" style="background: #2563eb;" onclick="selectColor('#2563eb', this)"></div> <!-- Azul -->
+                    <div class="color-dot" style="background: #7c3aed;" onclick="selectColor('#7c3aed', this)"></div> <!-- Roxo -->
+                    <div class="color-dot" style="background: #db2777;" onclick="selectColor('#db2777', this)"></div> <!-- Rosa -->
+                    <div class="color-dot" style="background: #1f2937;" onclick="selectColor('#1f2937', this)"></div> <!-- Preto -->
+                </div>
+            </div>
+
+            <button class="btn-primary" onclick="handleLogin()">Entrar no Chat</button>
+        </div>
+    </div>
+
+    <!-- TELA DO CHAT -->
+    <div id="chat-screen">
+        <header id="chat-header">
+            <div class="header-info">
+                <div class="avatar" id="header-avatar">A</div>
+                <div>
+                    <div style="font-weight: bold; font-size: 15px;">Chat da Equipe</div>
+                    <div class="user-status" id="header-username">Online</div>
+                </div>
+            </div>
+            <div class="header-actions">
+                <button onclick="forceUpdate()" title="Atualizar">
+                    <i data-lucide="refresh-cw" width="18"></i>
+                </button>
+                <button onclick="handleLogout()" title="Sair">
+                    <i data-lucide="log-out" width="18"></i>
+                </button>
+            </div>
+        </header>
+
+        <div id="messages-area">
+            <!-- Mensagens são injetadas aqui -->
+        </div>
+
+        <div id="input-area">
+            <input type="text" id="message-input" placeholder="Digite uma mensagem..." onkeypress="checkEnter(event)">
+            <button id="send-btn" onclick="sendMessage()">
+                <i data-lucide="send" width="20"></i>
+            </button>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // ======================================================
+    // ⚠️ CONFIGURAÇÃO: COLE SEU LINK ABAIXO DENTRO DAS ASPAS
+    const FIXED_API_URL = "https://script.google.com/macros/s/AKfycbzEwof2y587MZYFShrgifR8cL5ecARUorUi7BXCPguDXR4c3q_jlpyNma0GCde6aKO8/exec"; 
+    // ======================================================
+
+    // Variáveis de Estado
+    let currentUser = "";
+    let themeColor = "#059669";
+    let lastMsgCount = 0;
+    let pollInterval = null;
+
+    // Inicialização
+    window.onload = () => {
+        lucide.createIcons(); // Ativa os ícones
+        
+        // Verifica se o desenvolvedor configurou a URL
+        if (!FIXED_API_URL || FIXED_API_URL.length < 10) {
+            document.getElementById('login-error').innerText = "ERRO: A URL do Script não foi configurada no código HTML.";
+            document.getElementById('login-error').style.display = 'block';
+            return;
+        }
+
+        // Tenta recuperar sessão salva
+        const savedData = localStorage.getItem('chat_prefs');
+        if (savedData) {
+            const data = JSON.parse(savedData);
+            currentUser = data.user;
+            themeColor = data.color;
+            enterChatMode();
+        }
+    };
+
+    // --- FUNÇÕES DE INTERFACE ---
+
+    function selectColor(color, element) {
+        themeColor = color;
+        // Atualiza UI da seleção
+        document.querySelectorAll('.color-dot').forEach(dot => dot.classList.remove('active'));
+        element.classList.add('active');
+        // Atualiza preview instantâneo
+        document.querySelector('.login-icon').style.background = color;
+        document.querySelector('.btn-primary').style.background = color;
+    }
+
+    function handleLogin() {
+        const input = document.getElementById('username-input');
+        const name = input.value.trim();
+        
+        if (!name) {
+            alert("Por favor, digite seu nome.");
+            return;
+        }
+
+        currentUser = name;
+        
+        // Salva preferência
+        localStorage.setItem('chat_prefs', JSON.stringify({
+            user: currentUser,
+            color: themeColor
+        }));
+
+        enterChatMode();
+    }
+
+    function handleLogout() {
+        if(confirm("Deseja sair e trocar de utilizador?")) {
+            localStorage.removeItem('chat_prefs');
+            clearInterval(pollInterval);
+            location.reload(); // Recarrega para limpar tudo
+        }
+    }
+
+    function enterChatMode() {
+        // Aplica o tema
+        document.documentElement.style.setProperty('--primary-color', themeColor);
+        document.getElementById('chat-header').style.background = themeColor;
+        document.getElementById('send-btn').style.background = themeColor;
+        
+        // Configura header
+        document.getElementById('header-avatar').innerText = currentUser.charAt(0).toUpperCase();
+        document.getElementById('header-username').innerText = currentUser + " • Online";
+
+        // Troca de tela
+        document.getElementById('login-screen').classList.add('hidden');
+        document.getElementById('chat-screen').style.display = 'flex'; // Flex para alinhar footer
+
+        // Inicia Polling
+        fetchMessages();
+        pollInterval = setInterval(fetchMessages, 3000);
+    }
+
+    // --- LÓGICA DE REDE ---
+
+    async function fetchMessages() {
+        try {
+            const res = await fetch(`${FIXED_API_URL}?action=read&t=${Date.now()}`);
+            const data = await res.json();
+            
+            if (Array.isArray(data)) {
+                renderMessages(data);
+                lastMsgCount = data.length;
+            }
+        } catch (e) {
+            console.log("Polling silencioso falhou:", e);
+        }
+    }
+
+    // --- CORREÇÃO DA FUNÇÃO FORCEUPDATE ---
+    function forceUpdate() {
+        // O seletor mudou de 'i' para 'svg', pois o Lucide substitui a tag
+        const btnIcon = document.querySelector('button[title="Atualizar"] svg');
+        
+        if (btnIcon) {
+            btnIcon.style.animation = "spin 1s linear"; 
+            setTimeout(() => btnIcon.style.animation = "", 1000);
+        }
+        
+        fetchMessages();
+    }
+
+    async function sendMessage() {
+        const input = document.getElementById('message-input');
+        const text = input.value.trim();
+        const btn = document.getElementById('send-btn');
+
+        if (!text) return;
+
+        // UI Otimista
+        input.value = "";
+        input.disabled = true;
+        btn.disabled = true;
+        btn.innerHTML = '...'; // Loading simples
+
+        // Cria msg temporária na tela
+        addMessageToScreen({
+            user: currentUser,
+            text: text,
+            timestamp: new Date().toISOString(),
+            pending: true
+        });
+
+        try {
+            // Envia para o Google
+            await fetch(`${FIXED_API_URL}?action=write&user=${encodeURIComponent(currentUser)}&text=${encodeURIComponent(text)}`);
+            
+            // Atualiza para confirmar
+            await fetchMessages();
+        } catch (e) {
+            alert("Erro ao enviar mensagem. Verifique sua conexão.");
+        } finally {
+            input.disabled = false;
+            btn.disabled = false;
+            btn.innerHTML = '<i data-lucide="send" width="20"></i>';
+            lucide.createIcons();
+            input.focus();
+        }
+    }
+
+    // --- RENDERIZAÇÃO ---
+
+    function renderMessages(messages) {
+        const container = document.getElementById('messages-area');
+        
+        // Estratégia simples: Limpar e redesenhar (para apps pequenos é ok e evita bugs de duplicidade)
+        container.innerHTML = '';
+
+        messages.forEach(msg => {
+            addMessageToScreen(msg);
+        });
+        
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function addMessageToScreen(msg) {
+        const container = document.getElementById('messages-area');
+        const isMe = msg.user === currentUser;
+        
+        const div = document.createElement('div');
+        div.className = `msg ${isMe ? 'mine' : 'theirs'} ${msg.pending ? 'pending' : ''}`;
+        
+        // Hora formatada
+        const time = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '...';
+
+        // Cores automáticas para outros usuarios
+        const userColorClass = !isMe ? `color: hsl(${msg.user.length * 50}, 70%, 40%)` : '';
+
+        div.innerHTML = `
+            ${!isMe ? `<div class="msg-author" style="${userColorClass}">${msg.user}</div>` : ''}
+            <div>${msg.text}</div>
+            <div class="msg-meta">
+                ${time}
+                ${isMe && !msg.pending ? '<span style="color: #3b82f6; font-weight: bold;">✓✓</span>' : ''}
+                ${msg.pending ? '<span>🕒</span>' : ''}
+            </div>
+        `;
+        
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function checkEnter(e) {
+        if (e.key === "Enter") sendMessage();
+    }
+
+    // CSS Animation Keyframes injetados via JS para o botão de refresh
+    const styleSheet = document.createElement("style");
+    styleSheet.innerText = `@keyframes spin { 100% { transform: rotate(360deg); } }`;
+    document.head.appendChild(styleSheet);
+
+</script>
+
+</body>
+</html>
